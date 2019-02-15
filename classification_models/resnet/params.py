@@ -14,7 +14,7 @@ def get_conv_params(**params):
 
 def get_bn_params(**params):
     default_bn_params = {
-        'axis': 3,
+        'axis': 1,
         'momentum': 0.99,
         'epsilon': 2e-5,
         'center': True,

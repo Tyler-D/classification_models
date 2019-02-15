@@ -20,6 +20,7 @@ from ..common.blocks import SpatialSE
 from ..common.blocks import ChannelSE
 from ..common.blocks import ChannelSpatialSE
 
+from keras.applications.imagenet_utils import _obtain_input_shape
 
 def build_resnet(
      repetitions=(2, 2, 2, 2),
@@ -29,12 +30,17 @@ def build_resnet(
      classes=1000,
      block_type='conv',
      attention=None):
-    
+
     """
     TODO
     """
 
     if input_tensor is None:
+        input_shape = _obtain_input_shape(input_shape,
+                                          default_size=32,
+                                          min_size=8,
+                                          data_format=K.image_data_format(),
+                                          require_flatten=include_top)
         img_input = Input(shape=input_shape, name='data')
     else:
         if not K.is_keras_tensor(input_tensor):
@@ -69,33 +75,33 @@ def build_resnet(
     init_filters = 64
 
     # resnet bottom
-    x = BatchNormalization(name='bn_data', **no_scale_bn_params)(img_input)
+    x = BatchNormalization(name='bn_data_full', **bn_params)(img_input)
     x = ZeroPadding2D(padding=(3, 3))(x)
     x = Conv2D(init_filters, (7, 7), strides=(2, 2), name='conv0', **conv_params)(x)
     x = BatchNormalization(name='bn0', **bn_params)(x)
     x = Activation('relu', name='relu0')(x)
     x = ZeroPadding2D(padding=(1, 1))(x)
     x = MaxPooling2D((3, 3), strides=(2, 2), padding='valid', name='pooling0')(x)
-    
+
     # resnet body
     for stage, rep in enumerate(repetitions):
         for block in range(rep):
-            
+
             filters = init_filters * (2**stage)
-            
+
             # first block of first stage without strides because we have maxpooling before
             if block == 0 and stage == 0:
                 x = residual_block(filters, stage, block, strides=(1, 1),
                                    cut='post', attention=attention_block)(x)
-                
+
             elif block == 0:
                 x = residual_block(filters, stage, block, strides=(2, 2),
                                    cut='post', attention=attention_block)(x)
-                
+
             else:
                 x = residual_block(filters, stage, block, strides=(1, 1),
                                    cut='pre', attention=attention_block)(x)
-                
+
     x = BatchNormalization(name='bn1', **bn_params)(x)
     x = Activation('relu', name='relu1')(x)
 
@@ -110,7 +116,7 @@ def build_resnet(
         inputs = get_source_inputs(input_tensor)
     else:
         inputs = img_input
-        
+
     # Create model.
     model = Model(inputs, x)
 
